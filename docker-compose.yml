@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: metervault
+      POSTGRES_PASSWORD: metervault
+      POSTGRES_DB: metervault
+    ports:
+      - "5432:5432"
+    volumes:
+      - metervault-postgres:/var/lib/postgresql/data
+
+volumes:
+  metervault-postgres:

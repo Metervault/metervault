@@ -1,0 +1,63 @@
+/*
+  MeterVault palette. Teal is the water mark, brass is the vault accent.
+
+  Contrast (WCAG AA, normal text 4.5:1), calculated:
+  - #ffffff on #0A6B74 = 6.2 (buttons: white text on the brand teal)
+  - #085860 on #ffffff = 7.4 (brand text and links on light surfaces)
+  - #8A5E16 on #ffffff = 5.7 (brass accent text on light surfaces)
+  - #7ED4DC on #0C1418 = 11.4 (brand text on the dark canvas)
+  - #F3F7F7 on #0C1418 = 16.8
+*/
+
+:root {
+  --primary: #0a6b74;
+  --primary-dark: #085860;
+  --primary-light: #0c7480;
+  --accent: #8a5e16;
+  --brand-text: #085860;
+  --on-primary: #ffffff;
+
+  --text: #1c2a2e;
+  --muted: #5c6b70;
+  --canvas: #f3f7f7;
+  --surface: #ffffff;
+  --sidebar: #ffffff;
+  --line: #d9e3e4;
+  --danger: #8f2430;
+
+  --elevation-sm: 0 2px 4px rgba(12, 20, 24, 0.08);
+  --elevation-md: 0 4px 8px rgba(12, 20, 24, 0.12);
+  --elevation-lg: 0 8px 16px rgba(12, 20, 24, 0.16);
+
+  --touch: 48px;
+  --office-sidebar: 248px;
+  --field-bar: 64px;
+}
+
+[data-theme="dark"] {
+  --brand-text: #7ed4dc;
+  --accent: #e2b15a;
+  --on-primary: #ffffff;
+  --text: #f3f7f7;
+  --muted: #a8b6ba;
+  --canvas: #0c1418;
+  --surface: #152126;
+  --sidebar: #101a1e;
+  --line: #2a3c42;
+  --danger: #ffb4bc;
+  --elevation-sm: 0 2px 4px rgba(0, 0, 0, 0.35);
+  --elevation-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --elevation-lg: 0 8px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Outdoor reading. Dark text, hard edges, light ground. Scoped by the field shell. */
+[data-sunlight="on"] {
+  --brand-text: #064e56;
+  --on-primary: #ffffff;
+  --text: #111111;
+  --muted: #24292e;
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --line: #111111;
+  --danger: #7a1020;
+}
