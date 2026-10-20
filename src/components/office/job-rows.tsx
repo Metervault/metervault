@@ -17,9 +17,9 @@ export function jobTableRows(rows: OfficeJob[]) {
       cell(job.installer),
       cell(job.jobDate),
       cell(job.newMeterNumber),
-      <StatusPill value={job.status} />,
+      <StatusPill key={job.id} value={job.status} />,
       waiting.has(job.status) ? (
-        <Link href="/office/review" className="font-semibold text-brand">
+        <Link key={`${job.id}-review`} href="/office/review" className="font-semibold text-brand">
           Review
         </Link>
       ) : (

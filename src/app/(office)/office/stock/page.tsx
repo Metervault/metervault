@@ -21,7 +21,7 @@ export default async function Page() {
           columns={["Serial", "Kind", "Status", "Holder"]}
           rows={rows.map((row) => ({
             key: row.id,
-            cells: [row.serial, row.kind === "smart_device" ? "Smart device" : "Meter", <StatusPill value={row.status} />, row.holder ?? "—"],
+            cells: [row.serial, row.kind === "smart_device" ? "Smart device" : "Meter", <StatusPill key={row.id} value={row.status} />, row.holder ?? "—"],
           }))}
           empty="No meters or smart devices are in stock."
         />

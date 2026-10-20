@@ -28,7 +28,7 @@ export default async function Page() {
             cells: [
               cell([row.houseNumber, row.street].filter(Boolean).join(" ")),
               cell(row.town),
-              <StatusPill value={row.status} />,
+              <StatusPill key={row.id} value={row.status} />,
               cell(row.oldMeterNumber),
               cell(row.connectionNumber),
               cell(row.assignee),

@@ -22,8 +22,9 @@ export default async function Page() {
             cells: [
               row.responseCode ?? "—",
               [row.street, row.town].filter(Boolean).join(", ") || "—",
-              <StatusPill value={row.status} />,
+              <StatusPill key={`${row.id}-status`} value={row.status} />,
               <a
+                key={`${row.id}-location`}
                 className="font-semibold text-brand"
                 href={`https://www.openstreetmap.org/?mlat=${row.latitude}&mlon=${row.longitude}#map=17/${row.latitude}/${row.longitude}`}
                 target="_blank"
