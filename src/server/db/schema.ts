@@ -32,6 +32,7 @@ export const flagSeverity = pgEnum("flag_severity", ["block", "warn", "info"]);
 export const workOrderStatus = pgEnum("work_order_status", ["unassigned", "assigned", "in_progress", "completed", "exception"]);
 export const stockKind = pgEnum("stock_kind", ["meter", "smart_device"]);
 export const stockStatus = pgEnum("stock_status", ["in_stock", "issued", "installed", "returned"]);
+export const stockMovement = pgEnum("stock_movement", ["received", "issued", "installed", "returned"]);
 export const formStatus = pgEnum("form_status", ["draft", "published", "retired"]);
 
 const bytea = customType<{ data: Buffer; default: false }>({
@@ -302,6 +303,22 @@ export const stockItems = pgTable("stock_items", {
   ...timestamps,
 }, (table) => [
   uniqueIndex("stock_items_org_serial").on(table.organisationId, table.kind, table.serial),
+]);
+
+export const stockMovements = pgTable("stock_movements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organisationId: uuid("organisation_id").notNull().references(() => organisations.id),
+  stockItemId: uuid("stock_item_id").notNull().references(() => stockItems.id),
+  kind: stockKind("kind").notNull(),
+  serial: text("serial").notNull(),
+  action: stockMovement("action").notNull(),
+  actorId: uuid("actor_id").references(() => users.id),
+  holderId: uuid("holder_id").references(() => users.id),
+  jobId: uuid("job_id").references(() => jobs.id),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("stock_movements_org_at").on(table.organisationId, table.at),
+  index("stock_movements_item").on(table.stockItemId),
 ]);
 
 export const exportRuns = pgTable("export_runs", {

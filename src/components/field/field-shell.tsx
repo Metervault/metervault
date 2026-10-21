@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, Map, Plus, SunMedium, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LogoMark } from "@/components/brand/logo";
@@ -29,6 +29,7 @@ export function FieldShell({ children, user }: { children: ReactNode; user: { na
 
 function FieldFrame({ children, user }: { children: ReactNode; user: { name: string; username: string; email: string } }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { state, offline } = useSyncStatus();
   const [sunlight, setSunlight] = useState(false);
 
@@ -36,7 +37,8 @@ function FieldFrame({ children, user }: { children: ReactNode; user: { name: str
     const stored = localStorage.getItem(STORAGE.sunlight) === "on";
     setSunlight(stored);
     writeTechProfile({ name: user.name, username: user.username });
-  }, [user.name, user.username]);
+    for (const tab of tabs) router.prefetch(tab.href);
+  }, [router, user.name, user.username]);
 
   function toggleSunlight() {
     const next = !sunlight;

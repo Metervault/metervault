@@ -19,6 +19,7 @@ export function JobList() {
   const router = useRouter();
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
   const [ready, setReady] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     const load = () => void fieldDb.drafts.orderBy("updatedAt").reverse().toArray().then(setDrafts).finally(() => setReady(true));
@@ -27,6 +28,8 @@ export function JobList() {
   }, []);
 
   async function start() {
+    if (starting) return;
+    setStarting(true);
     const draft = await createDraft();
     router.push(`/field/capture?draft=${draft.id}`);
   }
@@ -37,8 +40,8 @@ export function JobList() {
     <div className="space-y-4">
       <SectionTitle className="text-xl">My jobs</SectionTitle>
       <p className="text-sm text-muted">Jobs stay on this phone until they sync. You can keep capturing with no signal.</p>
-      <button type="button" onClick={() => void start()} className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-primary text-base font-semibold text-on-primary">
-        Start a capture
+      <button type="button" disabled={starting} onClick={() => void start()} className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-primary text-base font-semibold text-on-primary disabled:opacity-60">
+        {starting ? "Opening" : "Start a capture"}
       </button>
       {drafts.length === 0 ? <p className="text-sm text-muted">No jobs on this phone yet.</p> : null}
       <ul className="space-y-3">

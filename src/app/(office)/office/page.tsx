@@ -13,7 +13,7 @@ const actions = [
   { href: "/office/team", label: "Team", detail: "Managers and field installers" },
   { href: "/office/work-orders", label: "Work orders", detail: "Send work to the field app" },
   { href: "/office/stock", label: "Stock", detail: "Meters and smart devices" },
-  { href: "/office/exports", label: "Exports", detail: "Download the company spreadsheet" },
+  { href: "/office/exports", label: "Exports", detail: "Download a daily or monthly report" },
 ];
 
 export default async function OfficeHomePage() {

@@ -1,21 +1,20 @@
 import { DatabaseNotice } from "@/components/office/database-notice";
+import { ReportDownloads } from "@/components/office/report-downloads";
 import { SectionTitle } from "@/components/section-title";
-import { loadJobs } from "@/server/office/load";
+import { loadReportDates } from "@/server/office/load";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   try {
-    const rows = await loadJobs();
+    const dates = await loadReportDates();
     return (
       <div className="space-y-4">
         <div>
           <SectionTitle>Exports</SectionTitle>
-          <p className="mt-3 text-sm text-muted">Download every capture in the company as a spreadsheet. {rows.length} {rows.length === 1 ? "capture" : "captures"} will be included.</p>
+          <p className="mt-3 text-sm text-muted">Pick a day or a month. The spreadsheet and the stock report both use that period. Days and months with a dot already have captures or stock movements.</p>
         </div>
-        <a href="/api/office/export" className="inline-flex min-h-12 items-center justify-center rounded-md bg-primary px-5 text-base font-semibold text-on-primary">
-          Download spreadsheet
-        </a>
+        <ReportDownloads today={dates.today} captureDates={dates.captureDates} movementDates={dates.movementDates} spreadsheet stock />
       </div>
     );
   } catch (error) {

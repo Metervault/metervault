@@ -13,7 +13,7 @@ export default async function Page() {
       <div className="space-y-4">
         <div>
           <SectionTitle>Jobs</SectionTitle>
-          <p className="mt-3 text-sm text-muted">Every capture in the company. Open Review on a waiting job to approve or reject it.</p>
+          <p className="mt-3 text-sm text-muted">Every capture in the company, in any status. Open a job to read the full record and print it.</p>
         </div>
         <DataTable columns={jobColumns} rows={jobTableRows(rows)} empty="No captures have come in yet." />
       </div>

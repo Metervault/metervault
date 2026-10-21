@@ -5,14 +5,22 @@ import { ADDRESS_FIELDS, defaultAnswers } from "@/lib/field/contract";
 import { fieldDb, notifyField, type DraftRecord, type PhotoRecord } from "@/lib/field/db";
 import { randomId } from "@/lib/field/id";
 
-export async function createDraft(): Promise<DraftRecord> {
+export async function createDraft(seed?: Answers): Promise<DraftRecord> {
   const now = Date.now();
+  const answers = defaultAnswers();
+  if (seed) {
+    for (const [key, value] of Object.entries(seed)) {
+      if (value == null) continue;
+      if (typeof value === "string" && value.trim() === "") continue;
+      answers[key] = key === "oldMeterNumber" || key === "connectionNumber" ? String(value).toUpperCase() : value;
+    }
+  }
   const draft: DraftRecord = {
     id: randomId(),
     idempotencyKey: randomId(),
     formKey: "meter-change",
     formVersion: METER_CHANGE_V1.version,
-    answers: defaultAnswers(),
+    answers,
     lifecycle: "draft",
     syncState: "local",
     createdAt: now,

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/domain/export/map.test.ts src/server/auth/access.test.ts src/server/sync/inbox.test.ts",
+    "test": "tsx --test src/domain/export/map.test.ts src/lib/job-facts.test.ts src/lib/report-period.test.ts src/server/auth/access.test.ts src/server/office/job-report.test.ts src/server/sync/inbox.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --env-file=.env src/server/db/seed.ts"
@@ -20,6 +20,7 @@
     "drizzle-orm": "^0.45.4",
     "lucide-react": "^0.545.0",
     "next": "^15.5.4",
+    "pdf-lib": "^1.17.1",
     "postgres": "^3.4.9",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

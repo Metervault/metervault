@@ -1,8 +1,8 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import type { SessionUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { catalogId } from "@/server/db/reference";
-import { contractGrants, contracts, formVersions, installers, jobFaults, jobPhotos, jobs, towns } from "@/server/db/schema";
+import { contractGrants, contracts, formVersions, installers, jobFaults, jobPhotos, jobs, stockItems, stockMovements, towns, workOrders } from "@/server/db/schema";
 
 const FAULTS = [
   ["faultRm", "rm"],
@@ -46,7 +46,10 @@ function uniqueViolation(error: unknown) {
 export async function acceptSyncedJob(idempotencyKey: string, answers: Record<string, unknown>, user: SessionUser) {
   const db = getDb();
   const [existing] = await db.select({ id: jobs.id }).from(jobs).where(and(eq(jobs.enumeratorId, user.id), eq(jobs.idempotencyKey, idempotencyKey))).limit(1);
-  if (existing) return { id: existing.id, duplicate: true };
+  if (existing) {
+    await settleInstall(existing.id, answers, user);
+    return { id: existing.id, duplicate: true };
+  }
 
   const [contract] = await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.organisationId, user.organisationId)).limit(1);
   const [form] = contract
@@ -118,12 +121,73 @@ export async function acceptSyncedJob(idempotencyKey: string, answers: Record<st
 
     const faults = FAULTS.filter(([field]) => flag(answers[field])).map(([, code]) => ({ jobId: job.id, code }));
     if (faults.length > 0) await db.insert(jobFaults).values(faults);
+    await settleInstall(job.id, answers, user);
     return { id: job.id, duplicate: false };
   } catch (error) {
     if (!uniqueViolation(error)) throw error;
     const [again] = await db.select({ id: jobs.id }).from(jobs).where(and(eq(jobs.enumeratorId, user.id), eq(jobs.idempotencyKey, idempotencyKey))).limit(1);
-    if (again) return { id: again.id, duplicate: true };
+    if (again) {
+      await settleInstall(again.id, answers, user);
+      return { id: again.id, duplicate: true };
+    }
     throw error;
+  }
+}
+
+/** Close the work order this capture came from, and take matching stock out of inventory. */
+async function settleInstall(jobId: string, answers: Record<string, unknown>, user: SessionUser) {
+  const db = getDb();
+  const workOrderId = text(answers.workOrderId);
+  const workOrderKey = workOrderId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workOrderId) ? workOrderId : null;
+  if (workOrderKey) {
+    const [order] = await db
+      .select({ id: workOrders.id, status: workOrders.status, assignedTo: workOrders.assignedTo })
+      .from(workOrders)
+      .where(and(eq(workOrders.id, workOrderKey), eq(workOrders.organisationId, user.organisationId)))
+      .limit(1);
+    if (order && order.status !== "exception") {
+      await db.update(jobs).set({ workOrderId: order.id, updatedAt: new Date() }).where(eq(jobs.id, jobId));
+      if (order.status !== "completed") {
+        await db
+          .update(workOrders)
+          .set({ status: "completed", assignedTo: order.assignedTo ?? user.id, updatedAt: new Date() })
+          .where(eq(workOrders.id, order.id));
+      }
+    }
+  }
+
+  const pairs = [
+    ["meter", text(answers.newMeterNumber)],
+    ["smart_device", text(answers.smartDeviceNumber)],
+  ] as const;
+  for (const [kind, serial] of pairs) {
+    if (!serial) continue;
+    const updated = await db
+      .update(stockItems)
+      .set({ status: "installed", jobId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(stockItems.organisationId, user.organisationId),
+          eq(stockItems.kind, kind),
+          sql`lower(${stockItems.serial}) = ${serial.toLowerCase()}`,
+          inArray(stockItems.status, ["in_stock", "issued", "returned"]),
+        ),
+      )
+      .returning({ id: stockItems.id, kind: stockItems.kind, serial: stockItems.serial, issuedTo: stockItems.issuedTo });
+    if (updated.length > 0) {
+      await db.insert(stockMovements).values(
+        updated.map((item) => ({
+          organisationId: user.organisationId,
+          stockItemId: item.id,
+          kind: item.kind,
+          serial: item.serial,
+          action: "installed" as const,
+          actorId: user.id,
+          holderId: item.issuedTo,
+          jobId,
+        })),
+      );
+    }
   }
 }
 

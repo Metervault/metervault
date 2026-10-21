@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
-import { getDb } from "@/server/db/client";
+import { getDb, isTransientDbError, resetDb } from "@/server/db/client";
 import { sessions, users } from "@/server/db/schema";
 
 export const SESSION_COOKIE = "metervault-session";
 const THIRTY_DAYS = 60 * 60 * 24 * 30;
+const SESSION_MEMORY_MS = 60_000;
+
+const remembered = new Map<string, { user: SessionUser; freshUntil: number }>();
 
 export type SessionUser = {
   id: string;
@@ -33,14 +36,14 @@ export async function createSession(userId: string) {
 export async function clearSession() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) await getDb().delete(sessions).where(eq(sessions.token, token));
+  if (token) {
+    remembered.delete(token);
+    await getDb().delete(sessions).where(eq(sessions.token, token));
+  }
   store.delete(SESSION_COOKIE);
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+async function readSession(token: string): Promise<SessionUser | null> {
   const db = getDb();
   const [row] = await db
     .select({
@@ -70,4 +73,33 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     organisationId: row.organisationId,
     orgRole: row.orgRole,
   };
+}
+
+function rememberedUser(token: string) {
+  const hit = remembered.get(token);
+  if (!hit) return null;
+  if (hit.freshUntil <= Date.now()) {
+    remembered.delete(token);
+    return null;
+  }
+  return hit.user;
+}
+
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const cached = rememberedUser(token);
+  if (cached) return cached;
+  try {
+    const user = await readSession(token);
+    if (user) remembered.set(token, { user, freshUntil: Date.now() + SESSION_MEMORY_MS });
+    return user;
+  } catch (error) {
+    if (!isTransientDbError(error)) throw error;
+    resetDb();
+    const user = await readSession(token);
+    if (user) remembered.set(token, { user, freshUntil: Date.now() + SESSION_MEMORY_MS });
+    return user;
+  }
 }

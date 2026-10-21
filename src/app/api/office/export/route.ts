@@ -1,4 +1,5 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { monthRange, readReportSpan, spanFilePart } from "@/lib/report-period";
 import { requireAdmin } from "@/server/auth/require-admin";
 import { getDb, safeDbMessage } from "@/server/db/client";
 import { jobs, towns, users } from "@/server/db/schema";
@@ -10,9 +11,18 @@ function cell(value: string | number | null | undefined) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const gate = await requireAdmin();
   if ("error" in gate) return gate.error;
+  const parsed = readReportSpan(request.url);
+  if (parsed.error) return Response.json({ error: parsed.error }, { status: 400 });
+  const span = parsed.span;
+  const filters = [eq(jobs.organisationId, gate.user.organisationId), isNull(jobs.deletedAt)];
+  if (span?.mode === "day") filters.push(eq(jobs.jobDate, span.date));
+  if (span?.mode === "month") {
+    const range = monthRange(span.month);
+    filters.push(gte(jobs.jobDate, range.start), lt(jobs.jobDate, range.end));
+  }
   try {
     const rows = await getDb()
       .select({
@@ -32,7 +42,7 @@ export async function GET() {
       .from(jobs)
       .leftJoin(users, eq(jobs.enumeratorId, users.id))
       .leftJoin(towns, eq(jobs.townId, towns.id))
-      .where(and(eq(jobs.organisationId, gate.user.organisationId), isNull(jobs.deletedAt)))
+      .where(and(...filters))
       .orderBy(desc(jobs.createdAt));
     const lines = [
       columns.join(","),
@@ -58,7 +68,8 @@ export async function GET() {
     return new Response(lines.join("\n"), {
       headers: {
         "content-type": "text/csv; charset=utf-8",
-        "content-disposition": "attachment; filename=\"metervault-captures.csv\"",
+        "content-disposition": `attachment; filename="metervault-captures${spanFilePart(span)}.csv"`,
+        "cache-control": "no-store",
       },
     });
   } catch (error) {

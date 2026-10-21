@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { and, count, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { todayInZone } from "@/lib/report-period";
 import { getSessionUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
-import { installers, jobFaults, jobPhotos, jobs, organisations, stockItems, towns, users, workOrders } from "@/server/db/schema";
+import { installers, jobFaults, jobPhotos, jobs, meterClasses, meterSizes, meterTypes, organisations, stockItems, stockMovements, towns, users, workOrders } from "@/server/db/schema";
 
 const REVIEW_STATUSES = ["submitted", "in_review", "resubmitted"] as const;
 
@@ -36,7 +37,7 @@ export type TeamMember = {
 };
 
 function todayInJohannesburg() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg" }).format(new Date());
+  return todayInZone();
 }
 
 function openJobs() {
@@ -121,6 +122,184 @@ export async function loadOfficeHome(): Promise<OfficeHome> {
 export async function loadJobs() {
   const scope = await currentOrganisation();
   return jobRows(and(openJobs(), eq(jobs.organisationId, scope.user.organisationId)));
+}
+
+const jobIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type JobPhotoRecord = {
+  id: string;
+  type: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  altitude: number | null;
+  capturedAt: Date | null;
+};
+
+export type JobRecord = {
+  id: string;
+  status: string;
+  installer: string | null;
+  jobDate: string | null;
+  responseCode: string | null;
+  submittedOn: Date | null;
+  companyName: string | null;
+  cardNumber: string | null;
+  jobNumber: string | null;
+  houseNumber: string | null;
+  street: string | null;
+  unitNumber: string | null;
+  lotNumber: string | null;
+  town: string | null;
+  installation: string | null;
+  premise: string | null;
+  faults: string[];
+  otherReason: string | null;
+  newMeterNumber: string | null;
+  meterSize: string | null;
+  meterClass: string | null;
+  meterType: string | null;
+  smartDeviceNumber: string | null;
+  smartDeviceReading: number | null;
+  oldMeterNumber: string | null;
+  oldMeterNotOnList: boolean;
+  oldMeterListNote: string | null;
+  oldMeterReading: number | null;
+  connectionNumber: string | null;
+  connectionNotOnList: boolean;
+  connectionListNote: string | null;
+  accountNumber: string | null;
+  rejectionMessage: string | null;
+  rejectionCount: number;
+  organisationName: string;
+  photos: JobPhotoRecord[];
+};
+
+export async function loadJob(id: string): Promise<JobRecord | null> {
+  if (!jobIdPattern.test(id)) return null;
+  const scope = await currentOrganisation();
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: jobs.id,
+      status: jobs.status,
+      installer: installers.displayName,
+      enumerator: users.name,
+      jobDate: jobs.jobDate,
+      responseCode: jobs.responseCode,
+      submittedOn: jobs.submittedOn,
+      companyName: jobs.companyName,
+      cardNumber: jobs.cardNumber,
+      jobNumber: jobs.jobNumber,
+      houseNumber: jobs.houseNumber,
+      street: jobs.street,
+      unitNumber: jobs.unitNumber,
+      lotNumber: jobs.lotNumber,
+      town: sql<string | null>`coalesce(${towns.name}, ${jobs.answers}->>'townId')`,
+      installation: jobs.installation,
+      premise: jobs.premise,
+      otherReason: jobs.otherReason,
+      newMeterNumber: jobs.newMeterNumber,
+      meterSize: sql<string | null>`coalesce(${meterSizes.exportString}, ${jobs.answers}->>'meterSizeId')`,
+      meterClass: sql<string | null>`coalesce(${meterClasses.exportString}, ${jobs.answers}->>'meterClassId')`,
+      meterType: sql<string | null>`coalesce(${meterTypes.exportString}, ${jobs.answers}->>'meterTypeId')`,
+      smartDeviceNumber: jobs.smartDeviceNumber,
+      smartDeviceReading: jobs.smartDeviceReading,
+      oldMeterNumber: jobs.oldMeterNumber,
+      oldMeterNotOnList: jobs.oldMeterNotOnList,
+      oldMeterListNote: jobs.oldMeterListNote,
+      oldMeterReading: jobs.oldMeterReading,
+      connectionNumber: jobs.connectionNumber,
+      connectionNotOnList: jobs.connectionNotOnList,
+      connectionListNote: jobs.connectionListNote,
+      accountNumber: jobs.accountNumber,
+      rejectionMessage: jobs.rejectionMessage,
+      rejectionCount: jobs.rejectionCount,
+      organisationName: organisations.name,
+    })
+    .from(jobs)
+    .leftJoin(towns, eq(jobs.townId, towns.id))
+    .leftJoin(installers, eq(jobs.installerId, installers.id))
+    .leftJoin(users, eq(jobs.enumeratorId, users.id))
+    .leftJoin(meterSizes, eq(jobs.meterSizeId, meterSizes.id))
+    .leftJoin(meterClasses, eq(jobs.meterClassId, meterClasses.id))
+    .leftJoin(meterTypes, eq(jobs.meterTypeId, meterTypes.id))
+    .innerJoin(organisations, eq(jobs.organisationId, organisations.id))
+    .where(and(eq(jobs.id, id), eq(jobs.organisationId, scope.user.organisationId), openJobs()))
+    .limit(1);
+  if (!row) return null;
+  const [faults, photos] = await Promise.all([
+    db.select({ code: jobFaults.code }).from(jobFaults).where(eq(jobFaults.jobId, row.id)),
+    db
+      .select({
+        id: jobPhotos.id,
+        type: jobPhotos.type,
+        latitude: jobPhotos.latitude,
+        longitude: jobPhotos.longitude,
+        accuracy: jobPhotos.accuracy,
+        altitude: jobPhotos.altitude,
+        capturedAt: jobPhotos.capturedAt,
+      })
+      .from(jobPhotos)
+      .where(eq(jobPhotos.jobId, row.id))
+      .orderBy(jobPhotos.sequence),
+  ]);
+  return {
+    id: row.id,
+    status: row.status,
+    installer: row.installer ?? row.enumerator,
+    jobDate: row.jobDate,
+    responseCode: row.responseCode,
+    submittedOn: row.submittedOn,
+    companyName: row.companyName,
+    cardNumber: row.cardNumber,
+    jobNumber: row.jobNumber,
+    houseNumber: row.houseNumber,
+    street: row.street,
+    unitNumber: row.unitNumber,
+    lotNumber: row.lotNumber,
+    town: row.town,
+    installation: row.installation,
+    premise: row.premise,
+    faults: faults.map((fault) => fault.code),
+    otherReason: row.otherReason,
+    newMeterNumber: row.newMeterNumber,
+    meterSize: row.meterSize,
+    meterClass: row.meterClass,
+    meterType: row.meterType,
+    smartDeviceNumber: row.smartDeviceNumber,
+    smartDeviceReading: row.smartDeviceReading,
+    oldMeterNumber: row.oldMeterNumber,
+    oldMeterNotOnList: row.oldMeterNotOnList,
+    oldMeterListNote: row.oldMeterListNote,
+    oldMeterReading: row.oldMeterReading,
+    connectionNumber: row.connectionNumber,
+    connectionNotOnList: row.connectionNotOnList,
+    connectionListNote: row.connectionListNote,
+    accountNumber: row.accountNumber,
+    rejectionMessage: row.rejectionMessage,
+    rejectionCount: row.rejectionCount,
+    organisationName: row.organisationName,
+    photos,
+  };
+}
+
+export async function loadReportDates() {
+  const scope = await currentOrganisation();
+  const db = getDb();
+  const organisationId = scope.user.organisationId;
+  const [captures, movements] = await Promise.all([
+    db.select({ jobDate: jobs.jobDate }).from(jobs).where(and(openJobs(), eq(jobs.organisationId, organisationId))),
+    db
+      .select({ day: sql<string>`to_char(${stockMovements.at} at time zone 'Africa/Johannesburg', 'YYYY-MM-DD')` })
+      .from(stockMovements)
+      .where(eq(stockMovements.organisationId, organisationId)),
+  ]);
+  return {
+    today: todayInJohannesburg(),
+    captureDates: captures.flatMap((row) => (row.jobDate ? [row.jobDate] : [])),
+    movementDates: movements.map((row) => row.day),
+  };
 }
 
 export type ReviewPhoto = {
@@ -294,6 +473,7 @@ export async function loadWorkOrders(audience: "company" | "field" = "company") 
       houseNumber: workOrders.houseNumber,
       oldMeterNumber: workOrders.oldMeterNumber,
       connectionNumber: workOrders.connectionNumber,
+      assignedTo: workOrders.assignedTo,
       assignee: users.name,
     })
     .from(workOrders)

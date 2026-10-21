@@ -1,15 +1,10 @@
-import { DataTable } from "@/components/office/data-table";
 import { DatabaseNotice } from "@/components/office/database-notice";
-import { StatusPill } from "@/components/office/status-pill";
 import { WorkOrderForm } from "@/components/office/work-order-form";
+import { WorkOrderList } from "@/components/office/work-order-list";
 import { SectionTitle } from "@/components/section-title";
 import { loadTeam, loadWorkOrders } from "@/server/office/load";
 
 export const dynamic = "force-dynamic";
-
-function cell(value: string | null) {
-  return value && value.trim() ? value : "—";
-}
 
 export default async function Page() {
   try {
@@ -18,24 +13,12 @@ export default async function Page() {
       <div className="space-y-4">
         <div>
           <SectionTitle>Work orders</SectionTitle>
-          <p className="mt-3 text-sm text-muted">Add an address here. It shows up in the field app for the person you assign, or for anyone if you leave it open.</p>
+          <p className="mt-3 text-sm text-muted">
+            Add an address, assign it, and close it when the work is done or cannot be done. Open orders show in the field app for the person you assign, or for anyone if you leave them open.
+          </p>
         </div>
         <WorkOrderForm team={team} />
-        <DataTable
-          columns={["Address", "Town", "Status", "Old meter", "Connection", "Assigned"]}
-          rows={rows.map((row) => ({
-            key: row.id,
-            cells: [
-              cell([row.houseNumber, row.street].filter(Boolean).join(" ")),
-              cell(row.town),
-              <StatusPill key={row.id} value={row.status} />,
-              cell(row.oldMeterNumber),
-              cell(row.connectionNumber),
-              cell(row.assignee),
-            ],
-          }))}
-          empty="No work orders yet."
-        />
+        <WorkOrderList orders={rows} team={team} />
       </div>
     );
   } catch (error) {
