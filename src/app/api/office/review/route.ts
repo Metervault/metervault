@@ -1,4 +1,5 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { isOfficeRole } from "@/lib/roles";
 import { getSessionUser } from "@/server/auth/session";
 import { getDb, safeDbMessage } from "@/server/db/client";
 import { jobs } from "@/server/db/schema";
@@ -8,7 +9,7 @@ const WAITING = ["submitted", "in_review", "resubmitted"] as const;
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
-  if (user.orgRole !== "admin") return Response.json({ error: "Only a manager can decide." }, { status: 403 });
+  if (!isOfficeRole(user.orgRole)) return Response.json({ error: "Only a manager can decide." }, { status: 403 });
 
   const body = (await request.json()) as { jobId?: unknown; decision?: unknown; message?: unknown };
   const jobId = typeof body.jobId === "string" ? body.jobId : "";

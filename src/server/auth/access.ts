@@ -1,4 +1,5 @@
 import type { JobStatus } from "../../domain/export/job";
+import { isOfficeRole, type OrgRole } from "../../lib/roles";
 
 export const CONTRACT_ROLES = ["technician", "supervisor", "admin", "client_viewer"] as const;
 export type ContractRole = (typeof CONTRACT_ROLES)[number];
@@ -87,7 +88,7 @@ export type Grant = { contractId: string; role: ContractRole };
 export type Actor = {
   userId: string;
   organisationId: string;
-  orgRole: "admin" | "member";
+  orgRole: OrgRole;
   grants: Grant[];
 };
 
@@ -111,19 +112,19 @@ export type ContractScope =
   | { contractId: string; mode: "approved" };
 
 function roleOn(actor: Actor, contractId: string): ContractRole | "org_admin" | null {
-  if (actor.orgRole === "admin") return "org_admin";
+  if (isOfficeRole(actor.orgRole)) return "org_admin";
   return actor.grants.find((grant) => grant.contractId === contractId)?.role ?? null;
 }
 
 export function allows(actor: Actor, capability: Capability, contractId?: string): boolean {
-  if (actor.orgRole === "admin") return ROLE_MATRIX.org_admin[capability];
+  if (isOfficeRole(actor.orgRole)) return ROLE_MATRIX.org_admin[capability];
   if (!contractId) return actor.grants.some((grant) => ROLE_MATRIX[grant.role][capability]);
   const role = roleOn(actor, contractId);
   return role != null && ROLE_MATRIX[role][capability];
 }
 
 export function jobScopes(actor: Actor): ContractScope[] | "organisation" {
-  if (actor.orgRole === "admin") return "organisation";
+  if (isOfficeRole(actor.orgRole)) return "organisation";
   return actor.grants.map((grant) => {
     if (grant.role === "technician") return { contractId: grant.contractId, mode: "own" as const, userId: actor.userId };
     if (grant.role === "client_viewer") return { contractId: grant.contractId, mode: "approved" as const };

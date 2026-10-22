@@ -43,6 +43,12 @@ test("an admin unlocks, a client viewer sees approved jobs only", () => {
   assert.equal(canMutateJob(viewer, "edit_submitted", job({ status: "approved" })), false);
 });
 
+test("a head manager has the same company-wide access as an organisation admin", () => {
+  const head = actor({ userId: "head-1", orgRole: "head", grants: [] });
+  assert.equal(canMutateJob(head, "unlock_approved", job({ contractId: "other", status: "approved" })), true);
+  assert.equal(canReadJob(head, job({ enumeratorId: "tech-2", status: "submitted" })), true);
+});
+
 test("an organisation admin is not limited to one contract, and another organisation is refused", () => {
   const orgAdmin = actor({ orgRole: "admin", grants: [] });
   assert.equal(canMutateJob(orgAdmin, "unlock_approved", job({ contractId: "other", status: "approved" })), true);

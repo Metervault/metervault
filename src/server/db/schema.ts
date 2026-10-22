@@ -21,7 +21,7 @@ const timestamps = {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 };
 
-export const orgRole = pgEnum("org_role", ["admin", "member"]);
+export const orgRole = pgEnum("org_role", ["admin", "member", "head"]);
 export const contractRole = pgEnum("contract_role", ["technician", "supervisor", "admin", "client_viewer"]);
 export const jobStatus = pgEnum("job_status", ["draft", "submitted", "in_review", "approved", "rejected", "resubmitted"]);
 export const installationType = pgEnum("installation_type", ["meter_only", "white_and_blue_box", "non_straight"]);
@@ -60,6 +60,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  removedAt: timestamp("removed_at", { withTimezone: true }),
   ...timestamps,
 }, (table) => [
   uniqueIndex("users_org_username").on(table.organisationId, table.username),

@@ -43,5 +43,5 @@ export async function catalogId(contractId: string, kind: "size" | "class" | "ty
 export async function organisationRole(organisationId: string) {
   const db = getDb();
   const [row] = await db.select({ value: count() }).from(users).where(eq(users.organisationId, organisationId));
-  return Number(row?.value ?? 0) === 0 ? "admin" : "member";
+  return Number(row?.value ?? 0) === 0 ? "head" : "member";
 }

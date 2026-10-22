@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
       return Response.json({ error: "Email or password is wrong." }, { status: 401 });
     }
+    if (user.removedAt) return Response.json({ error: "This account has been removed." }, { status: 403 });
     await createSession(user.id);
     return Response.json({ user: { id: user.id, name: user.name, username: user.username, email: user.email, orgRole: user.orgRole } });
   } catch (error) {

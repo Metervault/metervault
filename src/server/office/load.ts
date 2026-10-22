@@ -33,7 +33,7 @@ export type TeamMember = {
   id: string;
   name: string;
   email: string;
-  orgRole: "admin" | "member";
+  orgRole: "head" | "admin" | "member";
 };
 
 function todayInJohannesburg() {
@@ -455,7 +455,7 @@ export async function loadTeam() {
       orgRole: users.orgRole,
     })
     .from(users)
-    .where(eq(users.organisationId, scope.user.organisationId))
+    .where(and(eq(users.organisationId, scope.user.organisationId), isNull(users.removedAt)))
     .orderBy(users.name);
 }
 

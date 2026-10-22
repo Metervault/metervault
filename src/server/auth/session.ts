@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
+import { type OrgRole } from "@/lib/roles";
 import { getDb, isTransientDbError, resetDb } from "@/server/db/client";
 import { sessions, users } from "@/server/db/schema";
 
@@ -16,7 +17,7 @@ export type SessionUser = {
   username: string;
   email: string;
   organisationId: string;
-  orgRole: "admin" | "member";
+  orgRole: OrgRole;
 };
 
 export async function createSession(userId: string) {
@@ -53,6 +54,7 @@ async function readSession(token: string): Promise<SessionUser | null> {
       email: users.email,
       organisationId: users.organisationId,
       orgRole: users.orgRole,
+      removedAt: users.removedAt,
       sessionId: sessions.id,
       expiresAt: sessions.expiresAt,
     })
@@ -60,7 +62,10 @@ async function readSession(token: string): Promise<SessionUser | null> {
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(eq(sessions.token, token))
     .limit(1);
-  if (!row) return null;
+  if (!row || row.removedAt) {
+    if (row) await db.delete(sessions).where(eq(sessions.id, row.sessionId));
+    return null;
+  }
   if (row.expiresAt.getTime() <= Date.now()) {
     await db.delete(sessions).where(eq(sessions.id, row.sessionId));
     return null;
@@ -73,6 +78,11 @@ async function readSession(token: string): Promise<SessionUser | null> {
     organisationId: row.organisationId,
     orgRole: row.orgRole,
   };
+}
+
+export async function forgetUser(userId: string) {
+  const rows = await getDb().select({ token: sessions.token }).from(sessions).where(eq(sessions.userId, userId));
+  for (const row of rows) remembered.delete(row.token);
 }
 
 function rememberedUser(token: string) {

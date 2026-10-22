@@ -32,14 +32,14 @@ function LoginForm() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(mode === "login" ? { email, password } : { name, username, email, password }),
     });
-    const body = (await response.json()) as { error?: string; user?: { name: string; username: string; orgRole?: "admin" | "member" } };
+    const body = (await response.json()) as { error?: string; user?: { name: string; username: string; orgRole?: "head" | "admin" | "member" } };
     setPending(false);
     if (!response.ok || !body.user) {
       setError(body.error ?? "Could not sign you in.");
       return;
     }
     localStorage.setItem(STORAGE.tech, JSON.stringify({ name: body.user.name, username: body.user.username }));
-    const manager = body.user.orgRole === "admin";
+    const manager = body.user.orgRole === "admin" || body.user.orgRole === "head";
     const asked = params.get("next");
     let destination = manager ? "/office" : "/field";
     if (asked?.startsWith("/field")) destination = asked;
