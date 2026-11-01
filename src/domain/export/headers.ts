@@ -71,3 +71,10 @@ export const EXPORT_HEADERS = [
 export type ExportHeader = (typeof EXPORT_HEADERS)[number];
 
 export const EXPORT_SHEET_NAME = "Main";
+
+/** MeterVault additions after the municipal columns: clickable map links for GPS photos. */
+export const MAP_EXPORT_HEADERS = [
+  "PLEASE TAKE A PHOTO FO THE METER NUMBER (CODE:CZC) (OpenStreetMap)",
+  "PLEASE TAKE A PHOTO OF THE WATER POINT (OpenStreetMap)",
+  "PLEASE TAKE A PHOTO OF THE CIU AND NEW METER CARD (OpenStreetMap)",
+] as const;

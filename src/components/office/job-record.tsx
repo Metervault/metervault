@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StatusPill } from "@/components/office/status-pill";
 import { jobHeading, jobSections, photoCaption } from "@/lib/job-facts";
+import { openStreetMapUrl } from "@/lib/openstreetmap";
 import type { JobRecord } from "@/server/office/load";
 
 const waiting = new Set(["submitted", "in_review", "resubmitted"]);
@@ -70,7 +71,7 @@ export function JobRecordView({ job }: { job: JobRecord }) {
                 {photo.latitude != null && photo.longitude != null ? (
                   <a
                     className="mt-1 inline-flex text-sm font-semibold text-brand"
-                    href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=17/${photo.latitude}/${photo.longitude}`}
+                    href={openStreetMapUrl(photo.latitude, photo.longitude)}
                     target="_blank"
                     rel="noreferrer"
                   >

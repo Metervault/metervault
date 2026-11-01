@@ -1,5 +1,5 @@
 import { SectionTitle } from "@/components/section-title";
-import { EXPORT_HEADERS } from "@/domain/export/headers";
+import { EXPORT_HEADERS, MAP_EXPORT_HEADERS } from "@/domain/export/headers";
 import { INSTALLATION_EXPORT, PREMISE_EXPORT } from "@/domain/export/job";
 import { LIST_PHRASES } from "@/domain/export/phrases";
 import { METER_CHANGE_V1, fieldsOf } from "@/domain/forms/meter-change-v1";
@@ -163,7 +163,7 @@ export default function FormSchemaPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-muted">{fields.length} questions. {EXPORT_HEADERS.length} export columns, sheet Main.</p>
+        <p className="text-sm text-muted">{fields.length} questions. {EXPORT_HEADERS.length} municipal columns plus {MAP_EXPORT_HEADERS.length} OpenStreetMap columns, sheet Main.</p>
       </section>
 
       <section className="space-y-3">

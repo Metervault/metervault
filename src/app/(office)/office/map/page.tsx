@@ -2,6 +2,7 @@ import { DataTable } from "@/components/office/data-table";
 import { DatabaseNotice } from "@/components/office/database-notice";
 import { StatusPill } from "@/components/office/status-pill";
 import { SectionTitle } from "@/components/section-title";
+import { openStreetMapUrl } from "@/lib/openstreetmap";
 import { loadLocatedJobs } from "@/server/office/load";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function Page() {
               <a
                 key={`${row.id}-location`}
                 className="font-semibold text-brand"
-                href={`https://www.openstreetmap.org/?mlat=${row.latitude}&mlon=${row.longitude}#map=17/${row.latitude}/${row.longitude}`}
+                href={row.latitude != null && row.longitude != null ? openStreetMapUrl(row.latitude, row.longitude) : "#"}
                 target="_blank"
                 rel="noreferrer"
               >

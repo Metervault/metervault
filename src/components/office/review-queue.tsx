@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusPill } from "@/components/office/status-pill";
+import { openStreetMapUrl } from "@/lib/openstreetmap";
 import type { ReviewCapture } from "@/server/office/load";
 
 const installationLabel: Record<string, string> = {
@@ -186,7 +187,7 @@ export function ReviewQueue({ jobs }: { jobs: ReviewCapture[] }) {
                         {photo.latitude != null && photo.longitude != null ? (
                           <a
                             className="mt-1 inline-flex text-sm font-semibold text-brand"
-                            href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=17/${photo.latitude}/${photo.longitude}`}
+                            href={openStreetMapUrl(photo.latitude, photo.longitude)}
                             target="_blank"
                             rel="noreferrer"
                           >
