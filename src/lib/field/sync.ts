@@ -4,6 +4,8 @@ import { answersWithPhotos } from "@/lib/field/drafts";
 import { readTechProfile, syncPaused } from "@/lib/field/profile";
 
 const MAX_DELAY = 30_000;
+let flushing: Promise<string | null> | null = null;
+let flushAgain = false;
 
 function delayFor(attempts: number) {
   return Math.min(MAX_DELAY, 1000 * 2 ** attempts);
@@ -46,6 +48,7 @@ async function pushJob(draft: DraftRecord) {
 async function pushPhoto(photoId: string) {
   const photo = await fieldDb.photos.get(photoId);
   if (!photo) return;
+  if (!photo.blob || photo.blob.size === 0) throw new Error("Photo file is missing on this phone.");
   const draft = await fieldDb.drafts.get(photo.draftId);
   const body = new FormData();
   body.set("idempotencyKey", photo.idempotencyKey);
@@ -56,9 +59,16 @@ async function pushPhoto(photoId: string) {
   if (photo.longitude != null) body.set("longitude", String(photo.longitude));
   if (photo.accuracy != null) body.set("accuracy", String(photo.accuracy));
   if (photo.altitude != null) body.set("altitude", String(photo.altitude));
-  body.set("file", photo.blob, `${photo.id}.jpg`);
+  const file =
+    typeof File !== "undefined"
+      ? new File([photo.blob], `${photo.id}.jpg`, { type: photo.blob.type || "image/jpeg" })
+      : photo.blob;
+  body.set("file", file, `${photo.id}.jpg`);
   const response = await fetch("/api/sync/photos", { method: "POST", body });
-  if (!response.ok) throw new Error(`Photo sync failed (${response.status})`);
+  if (!response.ok) {
+    const failure = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(failure?.error || `Photo sync failed (${response.status})`);
+  }
 }
 
 export async function enqueueSubmit(draftId: string) {
@@ -69,9 +79,15 @@ export async function enqueueSubmit(draftId: string) {
     lifecycle: "queued",
     syncState: typeof navigator !== "undefined" && navigator.onLine && !syncPaused() ? "syncing" : "local",
     updatedAt: Date.now(),
+    lastError: undefined,
   });
   const already = await fieldDb.outbox.where("draftId").equals(draftId).toArray();
   const keys = new Set(already.map((item) => item.idempotencyKey));
+  // Explicit submit should retry immediately, not wait out a prior backoff window.
+  for (const item of already) {
+    if (!item.id) continue;
+    await fieldDb.outbox.update(item.id, { nextAttemptAt: 0 });
+  }
   if (!keys.has(draft.idempotencyKey)) {
     await fieldDb.outbox.add({
       kind: "job",
@@ -100,7 +116,7 @@ export async function enqueueSubmit(draftId: string) {
   return failure;
 }
 
-export async function flushOutbox() {
+async function runFlush() {
   if (typeof navigator !== "undefined" && (!navigator.onLine || syncPaused())) {
     const queued = await fieldDb.drafts.filter((draft) => draft.lifecycle === "queued" && draft.syncState === "syncing").toArray();
     for (const draft of queued) await fieldDb.drafts.update(draft.id, { syncState: "local" });
@@ -110,8 +126,10 @@ export async function flushOutbox() {
   const now = Date.now();
   const items = await fieldDb.outbox.orderBy("id").toArray();
   let failure: string | null = null;
+  const blockedDrafts = new Set<string>();
   for (const item of items) {
     if (!item.id || item.nextAttemptAt > now) continue;
+    if (item.kind === "photo" && blockedDrafts.has(item.draftId)) continue;
     try {
       if (item.kind === "job") {
         const draft = await fieldDb.drafts.get(item.draftId);
@@ -125,11 +143,29 @@ export async function flushOutbox() {
       const attempts = item.attempts + 1;
       const message = error instanceof Error ? error.message : "Sync failed";
       failure = message;
+      if (item.kind === "job") blockedDrafts.add(item.draftId);
       await fieldDb.outbox.update(item.id, { attempts, nextAttemptAt: Date.now() + delayFor(attempts) });
       await refreshDraft(item.draftId, message);
     }
   }
   return failure;
+}
+
+export async function flushOutbox() {
+  if (flushing) {
+    flushAgain = true;
+    return flushing;
+  }
+  flushing = runFlush()
+    .finally(() => {
+      flushing = null;
+    })
+    .then(async (result) => {
+      if (!flushAgain) return result;
+      flushAgain = false;
+      return flushOutbox();
+    });
+  return flushing;
 }
 
 export async function globalSyncState() {

@@ -493,6 +493,9 @@ function Review({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted">{photos.length} photo{photos.length === 1 ? "" : "s"} on this phone. Status: {syncState}.</p>
+      {syncState === "failed" ? (
+        <p className="text-sm text-danger">Form details can save while photos are still retrying. Stay online and press Submit again.</p>
+      ) : null}
       <dl className="space-y-2 rounded-lg border border-line bg-surface p-3 text-sm">
         {lines.map(([label, value]) => (
           <div key={String(label)} className="flex justify-between gap-3">

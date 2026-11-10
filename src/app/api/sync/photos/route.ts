@@ -8,6 +8,11 @@ function optionalNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function isUpload(value: FormDataEntryValue | null): value is Blob {
+  // Netlify/server runtimes can parse multipart parts from another realm, so `instanceof File` is unreliable.
+  return !!value && typeof value === "object" && typeof (value as Blob).arrayBuffer === "function";
+}
+
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
@@ -16,10 +21,13 @@ export async function POST(request: Request) {
   const jobKey = form.get("jobKey");
   const fieldId = form.get("fieldId");
   const file = form.get("file");
-  if (typeof idempotencyKey !== "string" || typeof jobKey !== "string" || typeof fieldId !== "string" || !(file instanceof File)) {
+  if (typeof idempotencyKey !== "string" || typeof jobKey !== "string" || typeof fieldId !== "string" || !isUpload(file)) {
     return Response.json({ error: "Missing photo." }, { status: 400 });
   }
   const bytes = Buffer.from(await file.arrayBuffer());
+  if (bytes.byteLength === 0) {
+    return Response.json({ error: "Photo file was empty." }, { status: 400 });
+  }
   try {
     const saved = await acceptSyncedPhoto({
       idempotencyKey,
