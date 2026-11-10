@@ -7,6 +7,8 @@ const MAX_DELAY = 30_000;
 let flushing: Promise<string | null> | null = null;
 let flushAgain = false;
 
+type FlushResult = string | null;
+
 function delayFor(attempts: number) {
   return Math.min(MAX_DELAY, 1000 * 2 ** attempts);
 }
@@ -116,7 +118,7 @@ export async function enqueueSubmit(draftId: string) {
   return failure;
 }
 
-async function runFlush() {
+async function runFlush(): Promise<FlushResult> {
   if (typeof navigator !== "undefined" && (!navigator.onLine || syncPaused())) {
     const queued = await fieldDb.drafts.filter((draft) => draft.lifecycle === "queued" && draft.syncState === "syncing").toArray();
     for (const draft of queued) await fieldDb.drafts.update(draft.id, { syncState: "local" });
@@ -151,21 +153,24 @@ async function runFlush() {
   return failure;
 }
 
-export async function flushOutbox() {
+export async function flushOutbox(): Promise<FlushResult> {
   if (flushing) {
     flushAgain = true;
     return flushing;
   }
-  flushing = runFlush()
-    .finally(() => {
-      flushing = null;
-    })
-    .then(async (result) => {
-      if (!flushAgain) return result;
+  flushing = (async (): Promise<FlushResult> => {
+    let result = await runFlush();
+    while (flushAgain) {
       flushAgain = false;
-      return flushOutbox();
-    });
-  return flushing;
+      result = await runFlush();
+    }
+    return result;
+  })();
+  try {
+    return await flushing;
+  } finally {
+    flushing = null;
+  }
 }
 
 export async function globalSyncState() {

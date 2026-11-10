@@ -8,9 +8,11 @@ function optionalNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function isUpload(value: FormDataEntryValue | null): value is Blob {
+type UploadPart = FormDataEntryValue & { arrayBuffer(): Promise<ArrayBuffer> };
+
+function isUpload(value: FormDataEntryValue | null): value is UploadPart {
   // Netlify/server runtimes can parse multipart parts from another realm, so `instanceof File` is unreliable.
-  return !!value && typeof value === "object" && typeof (value as Blob).arrayBuffer === "function";
+  return !!value && typeof value === "object" && typeof (value as UploadPart).arrayBuffer === "function";
 }
 
 export async function POST(request: Request) {
