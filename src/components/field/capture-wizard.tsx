@@ -248,7 +248,7 @@ export function CaptureWizard() {
               onRemovePhoto={(id) => void removePhoto(id)}
             />
           ))}
-          <Review answers={reviewAnswers} photos={photos} missing={missing} warnings={issues.filter((issue) => issue.severity === "warn")} syncState={draft.syncState} onOpen={openMissing} />
+          <Review answers={reviewAnswers} photos={photos} missing={missing} warnings={issues.filter((issue) => issue.severity === "warn")} syncState={draft.syncState} lastError={draft.lastError} onOpen={openMissing} />
         </>
       ) : (
         <div className="space-y-4">
@@ -470,6 +470,7 @@ function Review({
   missing,
   warnings,
   syncState,
+  lastError,
   onOpen,
 }: {
   answers: Answers;
@@ -477,6 +478,7 @@ function Review({
   missing: { fieldId: string; message: string }[];
   warnings: { fieldId: string; message: string }[];
   syncState: DraftRecord["syncState"];
+  lastError?: string;
   onOpen: (fieldId: string) => void;
 }) {
   const lines: [string, unknown][] = [
@@ -494,7 +496,10 @@ function Review({
     <div className="space-y-3">
       <p className="text-sm text-muted">{photos.length} photo{photos.length === 1 ? "" : "s"} on this phone. Status: {syncState}.</p>
       {syncState === "failed" ? (
-        <p className="text-sm text-danger">Form details can save while photos are still retrying. Stay online and press Submit again.</p>
+        <p className="text-sm text-danger">
+          Form details can save while photos are still retrying. Stay online and press Submit again.
+          {lastError ? ` (${lastError})` : ""}
+        </p>
       ) : null}
       <dl className="space-y-2 rounded-lg border border-line bg-surface p-3 text-sm">
         {lines.map(([label, value]) => (

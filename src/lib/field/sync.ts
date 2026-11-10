@@ -47,26 +47,37 @@ async function pushJob(draft: DraftRecord) {
   await fieldDb.drafts.update(draft.id, { serverId: body.id });
 }
 
+async function blobToBase64(blob: Blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 async function pushPhoto(photoId: string) {
   const photo = await fieldDb.photos.get(photoId);
   if (!photo) return;
   if (!photo.blob || photo.blob.size === 0) throw new Error("Photo file is missing on this phone.");
   const draft = await fieldDb.drafts.get(photo.draftId);
-  const body = new FormData();
-  body.set("idempotencyKey", photo.idempotencyKey);
-  body.set("jobKey", draft?.idempotencyKey ?? "");
-  body.set("fieldId", photo.fieldId);
-  body.set("capturedAt", photo.capturedAt);
-  if (photo.latitude != null) body.set("latitude", String(photo.latitude));
-  if (photo.longitude != null) body.set("longitude", String(photo.longitude));
-  if (photo.accuracy != null) body.set("accuracy", String(photo.accuracy));
-  if (photo.altitude != null) body.set("altitude", String(photo.altitude));
-  const file =
-    typeof File !== "undefined"
-      ? new File([photo.blob], `${photo.id}.jpg`, { type: photo.blob.type || "image/jpeg" })
-      : photo.blob;
-  body.set("file", file, `${photo.id}.jpg`);
-  const response = await fetch("/api/sync/photos", { method: "POST", body });
+  // JSON/base64 avoids Netlify multipart/form-data parsing issues that leave jobs saved with 0 photos.
+  const response = await fetch("/api/sync/photos", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      idempotencyKey: photo.idempotencyKey,
+      jobKey: draft?.idempotencyKey ?? "",
+      fieldId: photo.fieldId,
+      capturedAt: photo.capturedAt,
+      latitude: photo.latitude,
+      longitude: photo.longitude,
+      accuracy: photo.accuracy,
+      altitude: photo.altitude,
+      contentBase64: await blobToBase64(photo.blob),
+    }),
+  });
   if (!response.ok) {
     const failure = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(failure?.error || `Photo sync failed (${response.status})`);
