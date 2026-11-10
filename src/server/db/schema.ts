@@ -255,11 +255,13 @@ export const jobFaults = pgTable("job_faults", {
 export const jobPhotos = pgTable("job_photos", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: uuid("job_id").notNull().references(() => jobs.id),
+  organisationId: uuid("organisation_id").notNull().references(() => organisations.id),
   type: photoType("type").notNull(),
   sequence: integer("sequence").notNull().default(0),
   storageKey: text("storage_key"),
   legacyUrl: text("legacy_url"),
   content: bytea("content"),
+  contentSha256: text("content_sha256"),
   idempotencyKey: text("idempotency_key"),
   capturedAt: timestamp("captured_at", { withTimezone: true }),
   latitude: doublePrecision("latitude"),

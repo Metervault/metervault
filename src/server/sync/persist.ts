@@ -207,7 +207,7 @@ export async function acceptSyncedPhoto(input: {
   const db = getDb();
   const [existing] = await db.select({ id: jobPhotos.id }).from(jobPhotos).where(eq(jobPhotos.idempotencyKey, input.idempotencyKey)).limit(1);
   if (existing) return { id: existing.id, duplicate: true };
-  const [job] = await db.select({ id: jobs.id }).from(jobs).where(eq(jobs.idempotencyKey, input.jobKey)).limit(1);
+  const [job] = await db.select({ id: jobs.id, organisationId: jobs.organisationId }).from(jobs).where(eq(jobs.idempotencyKey, input.jobKey)).limit(1);
   if (!job) return { error: "job-missing" as const };
   const [prior] = await db.select({ value: count() }).from(jobPhotos).where(and(eq(jobPhotos.jobId, job.id), eq(jobPhotos.type, type)));
   const capturedAt = input.capturedAt && !Number.isNaN(Date.parse(input.capturedAt)) ? new Date(input.capturedAt) : null;
@@ -216,6 +216,7 @@ export async function acceptSyncedPhoto(input: {
       .insert(jobPhotos)
       .values({
         jobId: job.id,
+        organisationId: job.organisationId,
         type,
         sequence: Number(prior?.value ?? 0),
         content: input.bytes,
