@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusPill } from "@/components/office/status-pill";
+import { missingRequiredPhotos, photoCoverageLabel } from "@/domain/forms/photo-types";
 import { openStreetMapUrl } from "@/lib/openstreetmap";
 import type { ReviewCapture } from "@/server/office/load";
 
@@ -105,6 +106,7 @@ export function ReviewQueue({ jobs }: { jobs: ReviewCapture[] }) {
         {jobs.map((job) => {
           const title = [job.houseNumber, job.street].filter(Boolean).join(" ") || job.town || job.newMeterNumber || "Capture";
           const busy = pending === job.id;
+          const missingPhotos = photoCoverageLabel(missingRequiredPhotos(job.photos.map((photo) => photo.type)));
           const flags = [
             job.oldMeterNotOnList ? "Old meter was not on the list" : "",
             job.oldMeterListNote ? `Old meter note: ${job.oldMeterListNote}` : "",
@@ -120,6 +122,11 @@ export function ReviewQueue({ jobs }: { jobs: ReviewCapture[] }) {
                 </div>
                 <StatusPill value={job.status} />
               </div>
+              {missingPhotos ? (
+                <p className="mt-3 text-sm font-semibold text-danger">
+                  Photos still syncing or missing: {missingPhotos}. Do not approve until they arrive.
+                </p>
+              ) : null}
               {job.rejectionCount > 0 ? (
                 <p className="mt-3 text-sm text-danger">
                   Sent back {job.rejectionCount} {job.rejectionCount === 1 ? "time" : "times"}
@@ -174,7 +181,7 @@ export function ReviewQueue({ jobs }: { jobs: ReviewCapture[] }) {
               <section className="mt-4">
                 <h3 className="text-sm font-semibold">Photos</h3>
                 {job.photos.length === 0 ? (
-                  <p className="mt-2 text-sm text-muted">No photos on this capture.</p>
+                  <p className="mt-2 text-sm font-semibold text-danger">No photos on this capture yet.</p>
                 ) : (
                   <ul className="mt-2 space-y-3">
                     {job.photos.map((photo) => (
@@ -213,11 +220,11 @@ export function ReviewQueue({ jobs }: { jobs: ReviewCapture[] }) {
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || Boolean(missingPhotos)}
                   onClick={() => void decide(job.id, "approved")}
                   className="min-h-12 rounded-md bg-primary text-base font-semibold text-on-primary disabled:opacity-60"
                 >
-                  {busy ? "Saving" : "Approve"}
+                  {busy ? "Saving" : missingPhotos ? "Waiting for photos" : "Approve"}
                 </button>
                 {rejecting === job.id ? (
                   <button

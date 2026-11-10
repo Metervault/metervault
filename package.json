@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/domain/export/map.test.ts src/domain/export/workbook.test.ts src/lib/job-facts.test.ts src/lib/report-period.test.ts src/server/auth/access.test.ts src/server/office/job-report.test.ts src/server/sync/inbox.test.ts",
+    "test": "tsx --test src/domain/export/map.test.ts src/domain/export/workbook.test.ts src/domain/forms/photo-types.test.ts src/lib/job-facts.test.ts src/lib/report-period.test.ts src/server/auth/access.test.ts src/server/db/schema-contract.test.ts src/server/office/job-report.test.ts src/server/sync/inbox.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx --env-file=.env src/server/db/seed.ts"
+    "db:seed": "tsx --env-file=.env src/server/db/seed.ts",
+    "db:check": "tsx --env-file=.env scripts/check-job-photos-schema.mjs"
   },
   "dependencies": {
     "@zxing/browser": "^0.2.1",

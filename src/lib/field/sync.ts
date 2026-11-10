@@ -82,6 +82,7 @@ async function pushPhoto(photoId: string) {
     const failure = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(failure?.error || `Photo sync failed (${response.status})`);
   }
+  await fieldDb.photos.update(photo.id, { syncState: "synced" });
 }
 
 export async function enqueueSubmit(draftId: string) {

@@ -1,4 +1,5 @@
 import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { FIELD_PHOTO_TYPES } from "@/domain/forms/photo-types";
 import type { SessionUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { catalogId } from "@/server/db/reference";
@@ -13,14 +14,7 @@ const FAULTS = [
   ["faultRv", "rv"],
 ] as const;
 
-const PHOTO_TYPES = {
-  photoMeterNumber: "meter_number",
-  photoNewMeter: "new_meter",
-  photoOldMeter: "old_meter",
-  photoWaterPoint: "water_point",
-  photoCiu: "ciu_card",
-  photoOther: "other",
-} as const;
+const PHOTO_TYPES = FIELD_PHOTO_TYPES;
 
 const INSTALLATIONS = new Set(["meter_only", "white_and_blue_box", "non_straight"]);
 const PREMISES = new Set(["business", "domestic"]);
@@ -209,6 +203,7 @@ export async function acceptSyncedPhoto(input: {
   if (existing) return { id: existing.id, duplicate: true };
   const [job] = await db.select({ id: jobs.id, organisationId: jobs.organisationId }).from(jobs).where(eq(jobs.idempotencyKey, input.jobKey)).limit(1);
   if (!job) return { error: "job-missing" as const };
+  if (!job.organisationId) throw new Error("Job is missing organisation_id; cannot store photo.");
   const [prior] = await db.select({ value: count() }).from(jobPhotos).where(and(eq(jobPhotos.jobId, job.id), eq(jobPhotos.type, type)));
   const capturedAt = input.capturedAt && !Number.isNaN(Date.parse(input.capturedAt)) ? new Date(input.capturedAt) : null;
   try {
